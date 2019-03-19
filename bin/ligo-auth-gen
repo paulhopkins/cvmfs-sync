@@ -9,9 +9,9 @@ import optparse
 
 def parse_opts():
     parser = optparse.OptionParser(usage="%prog [option] [output_file]")
-    parser.add_option("-u", "--url", dest="url", help="LDAP server URL", default="ldap://ldap.ligo.org")
-    parser.add_option("-b", "--base", dest="base", help="LDAP server base tree", default="ou=people,dc=ligo,dc=org")
-    parser.add_option("-g", "--group", dest="group", help="Authorized group name", default="Communities:LSCVirgoLIGOGroupMembers")
+    parser.add_option("-u", "--url", dest="url", help="LDAP server URL", default="ldaps://ldap.ligo.org")
+    parser.add_option("-b", "--base", dest="base", help="LDAP server base tree", default="dc=ligo,dc=org")
+    parser.add_option("-g", "--group", dest="group", help="Authorized group name", default="Communities:LSCVirgoLIGOGroupMembers,Communities:robot:StashCacheCert")
     parser.add_option("-w", "--whitelist", dest="whitelist", help="Whitelist filename")
 
     return parser.parse_args()
@@ -20,8 +20,9 @@ def parse_opts():
 def main():
     opts, args = parse_opts()
     ldap_obj = ldap.initialize(opts.url)
-    query = "(&(isMemberOf=%s)(gridX509subject=*))" % opts.group
-    results = ldap_obj.search_s(opts.base, ldap.SCOPE_ONELEVEL, query, ["gridX509subject"])
+    group_filter = "".join("(isMemberOf=%s)" % group for group in opts.group.split(',') if group)
+    query = "(&(|%s)(gridX509subject=*))" % group_filter
+    results = ldap_obj.search_s(opts.base, ldap.SCOPE_SUBTREE, query, ["gridX509subject"])
     all_dns = []
     for result in results:
         user_dns = result[1].get('gridX509subject', [])
